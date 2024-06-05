@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Text Example</title>
+</head>
+<body>
+
+    <input type="text" id="accountAddress" placeholder="0xabc..." value="0xb6F5414bAb8d5ad8F33E37591C02f7284E974FcB">
+    <button onclick="changeText()">Get Data</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function changeText() {
+
+            const accountAddress = document.getElementById('accountAddress').value;
+            document.getElementById('output').innerText = "fetching...";
+
+            await fetch('https://api.goldsky.com/api/public/project_clk74pd7lueg738tw9sjh79d6/subgraphs/aave-v3-scroll/1.0.0/gn', {
+                method: 'POST',
+                body: JSON.stringify({
+                    query: `{
+  userReserves(where: { user: "`+ accountAddress.toLowerCase() +`" }) {
+    usageAsCollateralEnabledOnUser,
+    reserve {
+      name,
+      aToken {
+        underlyingAssetAddress
+      }
+    },
+    currentTotalDebt,
+    currentATokenBalance
+  }
+}`
+            }),
+            headers: {
+                'content-type': 'application/json'
+            }
+            }).then(async (data) => {
+                let returnValue = []
+                let userReserves = (await data.json()).data.userReserves
+                console.log(userReserves)
+                for(let i=0; i<userReserves.length; i++)
+                {
+                    let userReserve = userReserves[i]
+                    let net_supply_token = parseInt(userReserve.currentATokenBalance) - parseInt(userReserve.currentTotalDebt)
+                    let non_recursive_supply_token = Math.max(0, parseInt(userReserve.currentATokenBalance) - parseInt(userReserve.currentTotalDebt))
+                    returnValue.push(
+                        {
+                            protocol: "Aave",
+                            date: new Date(),
+                            block_number: 123,
+                            user_address: userReserve.reserve.name,
+                            market: userReserve.reserve.aToken.underlyingAssetAddress,
+                            tokenSymbol: userReserve.reserve.name,
+                            supply_token: userReserve.currentATokenBalance,
+                            borrow_token: userReserve.currentTotalDebt,
+                            net_supply_token: net_supply_token,
+                            non_recursive_supply_token: non_recursive_supply_token,
+                            price: "TODO"
+                        },
+                    )
+                }
+                document.getElementById('output').innerText = JSON.stringify(returnValue, null, 4);
+            });
+        }
+    </script>
+    
+</body>
+</html>
